@@ -1,24 +1,88 @@
-require 'rails_helper'
+require 'rails_helper.rb'
 
-describe Movie do
-  describe '.find_same_director' do
-    let!(:movie1) { FactoryGirl.create(:movie, title: 'A', director: 'X') }
-    let!(:movie2) { FactoryGirl.create(:movie, title: 'B', director: 'X') }
-    let!(:movie3) { FactoryGirl.create(:movie, title: "C", director: 'Y') }
-    let!(:movie4) { FactoryGirl.create(:movie, title: "D") }
-
-    context 'director exists' do
-      it 'finds similar movies correctly' do
-        expect(Movie.same_director(movie1.title)).to eql(['A', 'B'])
-        expect(Movie.same_director(movie1.title)).to_not include(['C'])
+describe MoviesController, :type => :controller do
+    describe '.find_same_director' do
+      let!(:movie1) { FactoryGirl.create(:movie, title: 'A', director: 'X') }
+      let!(:movie2) { FactoryGirl.create(:movie, title: 'B', director: 'X') }
+      let!(:movie3) { FactoryGirl.create(:movie, title: "C", director: 'Y') }
+      let!(:movie4) { FactoryGirl.create(:movie, title: "D") }
+  
+      context 'director exists' do
+        it 'finds similar movies correctly' do
+          expect(Movie.same_director(movie1.title)).to eql(['A', 'B'])
+          expect(Movie.same_director(movie1.title)).to_not include(['C'])
+        end
+      end
+  
+      context 'director does not exist' do
+        it 'handles sad path' do
+          expect(Movie.same_director(movie4.title)).to eql(nil)
+        end
       end
     end
-
-    context 'director does not exist' do
-      it 'handles sad path' do
-        expect(Movie.same_director(movie4.title)).to eql(nil)
-      end
+    
+    describe "edit" do
+        it "edit a movie" do
+            @movie = double('Movie')
+            expect(Movie).to receive(:find).and_return(@movie)
+            get :edit, {:id => '1'}
+            expect(response).to render_template(:edit)
+        end
     end
-  end
+    
+    describe "Sorting movies according to tile and release date" do
+        it "sort according to movie title" do 
+            get :index, sort: "title"
+            expect(response.body).to include "title"
+        end
+        it "sort according to release date" do 
+            get :index, sort: "release_date"
+            expect(response.body).to include "release_date"
+        end 
+    end
+    
+    describe "Sorting movies according to rating" do
+        it "sort movies according to rating" do 
+            @ratings={"G"=>"1", "NC-17"=>"1", "R"=>"1"}
+            get :index, ratings: @ratings
+            expect(response.body).to include "ratings"
+            expect(response.body).to include "G"
+            expect(response.body).to include "R"
+            expect(response.body).to include "NC-17"
+        end
+    end
+    
+    describe "destroy" do
+        it "delete a movie" do
+            @id='1'
+            @movie = double('null movie').as_null_object
+            expect(Movie).to receive(:find).with(@id).and_return(@movie)
+            delete :destroy, {:id => @id}
+            expect(flash[:notice]).to match(/Movie || deleted./)
+            expect(response).to redirect_to(movies_path)
+        end
+    end
+    
+    describe "update" do
+        it "update existing movie to add director" do
+            @id = "1"
+            @movie = double('null movie').as_null_object
+            @defaults = {title: "abc", rating: "PG", director: "Bond"}
+            expect(Movie).to receive(:find).with(@id).and_return(@movie)
 
-end
+            put :update, id: @id, movie: @defaults
+            expect(flash[:notice]).to match(/was successfully updated./)
+            expect(response).to redirect_to(movie_path(@movie))
+        end
+    end
+
+    describe "create" do
+        it "create movie " do
+            @movie = {title: "Hello", rating: "PG"}
+            post :create, movie: @movie
+            expect(flash[:notice]).to eq("Hello was successfully created.")
+            expect(response).to redirect_to(movies_path)
+        end
+    end
+
+end 
